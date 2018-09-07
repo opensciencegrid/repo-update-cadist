@@ -260,7 +260,7 @@ done
 
 chmod -R ug+rwX "${TMPROOT}/cadist/"
 chmod -R o+rX "${TMPROOT}/cadist/"
-chown ${USER}:goc "${TMPROOT}/cadist/"
+chown root:goc "${TMPROOT}/cadist/"
 
 # if $CAINSTALL is /usr/local/repo/cadist:
 #  NEWDIR is /usr/local/repo/.cadist.new
