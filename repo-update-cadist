@@ -11,6 +11,7 @@ CAINSTALL=${INSTALLBASE}/cadist
 CADISTREPO="https://vdt.cs.wisc.edu/svn/certs/trunk/cadist"
 CADISTREPORELEASETYPE="release"
 RPMREPO=osg
+USER=${USER:-$(id -un)}
 
 usage () {
     echo "Usage: $(basename "$0") [--testing]" >&2
