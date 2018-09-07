@@ -11,6 +11,7 @@ CAINSTALL=${INSTALLBASE}/cadist
 CADISTREPO="https://vdt.cs.wisc.edu/svn/certs/trunk/cadist"
 CADISTREPORELEASETYPE="release"
 RPMREPO=osg
+USER=${USER:-$(id -un)}
 
 OSG_SECURITY_PUBKEY_URL=https://raw.githubusercontent.com/opensciencegrid/security/master/docs/pgpkey/osg-security-pubkey.asc
 OSG_SECURITY_PUBKEY=$(basename "$OSG_SECURITY_PUBKEY_URL")
@@ -56,6 +57,11 @@ LOGREDIRECTFILENAME="/var/log/repo-update-cadist"
 exec 2>>$LOGREDIRECTFILENAME.stderr
 
 
+message () {
+    echo "$(date)" "$@" >&2
+}
+
+
 [[ $(id -u) == 0 ]] || { message "Not running as root. Bailing."; exit 1; }
 which yumdownloader &> /dev/null  ||  { message "yumdownloader not found. Install the yum-utils package."; exit 1; }
 
@@ -75,10 +81,6 @@ gpg_wrapper () {
     fi
     rm -f $outputfile
     return $ret
-}
-
-message () {
-    echo "$(date)" "$@" >&2
 }
 
 wget -q "$OSG_SECURITY_PUBKEY_URL" -O "$GPG_HOME/$OSG_SECURITY_PUBKEY"
