@@ -12,9 +12,6 @@ CADISTREPO="https://vdt.cs.wisc.edu/svn/certs/trunk/cadist"
 CADISTREPORELEASETYPE="release"
 RPMREPO=osg
 
-OSG_SECURITY_PUBKEY_URL=https://raw.githubusercontent.com/opensciencegrid/security/master/docs/pgpkey/osg-security-pubkey.asc
-OSG_SECURITY_PUBKEY=$(basename "$OSG_SECURITY_PUBKEY_URL")
-
 usage () {
     echo "Usage: $(basename "$0") [--testing]" >&2
     echo "  --testing    Download from the \"osg-testing\" repositories (instead of \"osg\")" >&2
@@ -63,31 +60,6 @@ message () {
 
 [[ $(id -u) == 0 ]] || { message "Not running as root. Bailing."; exit 1; }
 which yumdownloader &> /dev/null  ||  { message "yumdownloader not found. Install the yum-utils package."; exit 1; }
-
-
-GPG_HOME=$TMPROOT/GPG_HOME
-mkdir -p "$GPG_HOME"
-
-# gpg is noisy and sends output to stderr even when things are going fine
-# silence output unless there is an error
-gpg_wrapper () {
-    local outputfile ret
-    outputfile=$(mktemp)
-    gpg --homedir=$GPG_HOME "$@"  >$outputfile 2>&1
-    ret=$?
-    if [[ $ret != 0 ]]; then
-        cat $outputfile 1>&2
-    fi
-    rm -f $outputfile
-    return $ret
-}
-
-wget -q "$OSG_SECURITY_PUBKEY_URL" -O "$GPG_HOME/$OSG_SECURITY_PUBKEY"
-if ! gpg_wrapper --import "$GPG_HOME/$OSG_SECURITY_PUBKEY"; then
-    message "Error importing OSG Security public key"
-    message "Download URL: $OSG_SECURITY_PUBKEY_URL"
-    exit 1
-fi
 
 # Clear caches so we download the latest version
 yum --disablerepo=\* --enablerepo="$RPMREPO-source" clean all 1>&2
@@ -143,28 +115,12 @@ for TYPES in NEW IGTFNEW; do
     VERSION_CA=${BASH_REMATCH[1]}
     # VERSION_CA should be like "1.59"
 
-    ## Download the GPG signature of the tarball from SVN and verify
-    ## the tarball we extracted
-    SIGFILE=${TARBALL}.sig
-    SIGFILE_URL=${CADISTREPO}/${CADISTREPORELEASETYPE}/${SIGFILE}
-    if ! svn export -q --force "$SIGFILE_URL" "$SIGFILE"; then
-        message "$SIGFILE: unable to download"
-        message "Upstream URL: $SIGFILE_URL"
-        exit 1
-    fi
-    if ! gpg_wrapper --verify "$SIGFILE"; then
-        message "$TARBALL: GPG verification failed"
-        exit 1
-    fi
-
-    ## Save the tarball and the sigfile
+    ## Save the tarball
     CADIR="${TMPROOT}/cadist/${VERSION_CA}${SUFFIX}"
     CATARBALL="${CADIR}/$TARBALL"
-    CASIGFILE="${CADIR}/$SIGFILE"
 
     mkdir -p "${CADIR}"
     mv -f "$TARBALL" "$CATARBALL"
-    mv -f "$SIGFILE" "$CASIGFILE"
 
     # Clean up
     popd >/dev/null
