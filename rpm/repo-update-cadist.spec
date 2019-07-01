@@ -1,12 +1,11 @@
 Name:      repo-update-cadist
 Summary:   repo-update-cadist
-Version:   1.0.3
+Version:   1.0.4
 Release:   1%{?dist}
 License:   Apache 2.0
 Group:     Grid
 URL:       https://github.com/opensciencegrid/repo-update-cadist
 BuildArch: noarch
-Requires: gnupg2
 Requires: subversion
 Requires: wget
 Requires: yum-utils
@@ -41,6 +40,9 @@ install -pm 644 %{name}.cron  $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
 %endif
 
 %changelog
+* Mon Jul 01 2019 Mátyás Selmeci <matyas@cs.wisc.edu> - 1.0.4-1
+- Stop checking gpg sig (SOFTWARE-3555)
+
 * Fri Apr 27 2018 Carl Edquist <edquist@cs.wisc.edu> - 1.0.3-1
 - Add systemd service/timer and locking to cron job (SOFTWARE-3234)
 - Only run service hourly (SOFTWARE-3238)
