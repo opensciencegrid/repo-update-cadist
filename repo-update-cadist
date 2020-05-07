@@ -63,8 +63,8 @@ message () {
 which yumdownloader &> /dev/null  ||  { message "yumdownloader not found. Install the yum-utils package."; exit 1; }
 
 # Clear caches so we download the latest version
-yum --disablerepo=\* --enablerepo="$RPMREPO-source" clean all 1>&2
-yum --disablerepo=\* --enablerepo="$RPMREPO-source" clean expire-cache 1>&2
+yum --disablerepo=\* --enablerepo="$RPMREPO" clean all 1>&2
+yum --disablerepo=\* --enablerepo="$RPMREPO" clean expire-cache 1>&2
 
 for TYPES in NEW IGTFNEW; do
     SUFFIX=$TYPES
@@ -93,8 +93,8 @@ for TYPES in NEW IGTFNEW; do
     mkdir -p "$DOWNLOADDIR"
     pushd "$DOWNLOADDIR" >/dev/null
     # yumdownloader prints errors to stdout and is quiet when everything is ok
-    yumdownloader --disablerepo=\* --enablerepo="$RPMREPO-source" --source "$RPM" 1>&2
-    RPMFILE=$(/bin/ls *.src.rpm)
+    yumdownloader --disablerepo=\* --enablerepo="$RPMREPO" "$RPM" 1>&2
+    RPMFILE=(*.noarch.rpm)
     if [[ ! -f $RPMFILE ]]; then
         message "$RPM: unable to download from repos"
         exit 1
