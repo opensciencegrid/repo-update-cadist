@@ -135,6 +135,7 @@ for TYPES in NEW IGTFNEW; do
     ## Save the tarball
     CADIR="${TMPROOT}/cadist/${VERSION_CA}${SUFFIX}"
     CATARBALL="${CADIR}/$TARBALL"
+    eval VER_${SUFFIX}='${VERSION_CA}${SUFFIX}'
 
     mkdir -p "${CADIR}"
     mv -f "$TARBALL" "$CATARBALL"
@@ -215,6 +216,18 @@ for TYPES in NEW IGTFNEW; do
         echo "$(date) updated to new version ${VERSION_CA}${SUFFIX}" >>$UPDATELOG
     fi
 done
+
+# temporary fix for broken links in INDEX.html (SOFTWARE-4091)
+# (needs to be fixed in mk-index.pl in the osg-certificates package)
+
+IGTFNEW_BUNDLE=${VER_IGTFNEW}/osg-certificates-${VER_IGTFNEW}.tar.gz
+NEW_BUNDLE=${VER_NEW}/osg-certificates-${VER_NEW}.tar.gz
+
+sed -i -e "/Latest IGTF CA bundle/s|href='[^']*'|href='$IGTFNEW_BUNDLE'|" \
+       -e "/Latest OSG CA bundle/s|href='[^']*'|href='$NEW_BUNDLE'|"      \
+    ${TMPROOT}/cadist/${VER_IGTFNEW}/INDEX.html                           \
+    ${TMPROOT}/cadist/${VER_NEW}/INDEX.html
+
 
 chmod -R ug+rwX "${TMPROOT}/cadist/"
 chmod -R o+rX "${TMPROOT}/cadist/"
