@@ -1,6 +1,6 @@
 Name:      repo-update-cadist
 Summary:   repo-update-cadist
-Version:   1.0.4
+Version:   1.1.0
 Release:   1%{?dist}
 License:   Apache 2.0
 Group:     Grid
@@ -40,6 +40,9 @@ install -pm 644 %{name}.cron  $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
 %endif
 
 %changelog
+* Thu May 07 2020 Carl Edquist <edquist@cs.wisc.edu> - 1.1.0-1
+- Generate tarball & artifacts from binary rpms (SOFTWARE-4091)
+
 * Mon Jul 01 2019 Mátyás Selmeci <matyas@cs.wisc.edu> - 1.0.4-1
 - Stop checking gpg sig (SOFTWARE-3555)
 
