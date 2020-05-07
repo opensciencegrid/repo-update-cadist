@@ -99,22 +99,37 @@ for TYPES in NEW IGTFNEW; do
         message "$RPM: unable to download from repos"
         exit 1
     fi
-    rpm2cpio "$RPMFILE" | cpio --quiet -id '*.tar.gz'
-    TARBALL=$(/bin/ls *.tar.gz)
-    if [[ ! -f $TARBALL ]]; then
-        message "$RPMFILE: couldn't extract tarball"
+
+    # create tarball from rpm such that the checksum is reproducible
+
+    mkdir tarball-tmp
+    rpm2cpio "$RPMFILE" | (
+        cd tarball-tmp
+        cpio --quiet -idm
+    )
+    # cpio -m does not set symlink timestamps, so set them to match targets
+    # this way, the tarball checksum is reproducible
+    (
+        cd tarball-tmp/etc/grid-security/certificates
+        find -type l -exec bash -c '
+            for x; do touch -hr "$(readlink "$x")" "$x"; done' - {} +
+    )
+    mv tarball-tmp/etc/grid-security/certificates .
+    OSG_VER=$(awk '/OSGversion/ {print $3}' certificates/INDEX.txt)
+    TARBALL=osg-certificates-${OSG_VER}.tar.gz
+
+    # TARBALL should be like "osg-certificates-1.59NEW.tar.gz"
+    if [[ ! $OSG_VER =~ ^([[:digit:]]+\.[[:digit:]]+)${SUFFIX}$ ]]; then
+        message "Bad OSGversion: '$OSG_VER'"
+        message "Extracted from INDEX.txt in $RPMFILE"
         exit 1
     fi
 
-    # Only by parsing the tarball name can we find out the version of the CA certs
-    # TARBALL should be like "osg-certificates-1.59NEW.tar.gz"
-    if [[ ! $TARBALL =~ ^osg-certificates-([[:digit:]]+\.[[:digit:]]+)${SUFFIX}\.tar\.gz$ ]]; then
-        message "$TARBALL: bad tarball name"
-        message "Extracted from $RPMFILE"
-        exit 1
-    fi
     VERSION_CA=${BASH_REMATCH[1]}
     # VERSION_CA should be like "1.59"
+
+    # again, care is taken here to make a tarball with a reproducible checksum
+    tar c certificates/* --{owner,group}=root | gzip -n > "$TARBALL"
 
     ## Save the tarball
     CADIR="${TMPROOT}/cadist/${VERSION_CA}${SUFFIX}"
