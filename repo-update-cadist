@@ -149,7 +149,7 @@ for TYPES in NEW IGTFNEW; do
     ## tarball in it. Then rename it to add the "-new" or "-igtf-new"
     ## suffix.
     VERSIONFILE=${TMPROOT}/cadist/ca-certs-version${FILEEXT}
-    REPO_CADIST=http://repo.opensciencegrid.org/pacman/cadist
+    REPO_CADIST=http://repo.opensciencegrid.org/cadist
     TARBALL_URL=$REPO_CADIST/${VERSION_CA}${SUFFIX}/$TARBALL
 
     # generate manifest
