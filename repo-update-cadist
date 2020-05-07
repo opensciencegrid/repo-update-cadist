@@ -8,8 +8,6 @@ trap 'rm -rf "$TMPROOT"' EXIT
 GOC=/usr/local
 INSTALLBASE=${GOC}/repo
 CAINSTALL=${INSTALLBASE}/cadist
-CADISTREPO="https://vdt.cs.wisc.edu/svn/certs/trunk/cadist"
-CADISTREPORELEASETYPE="release"
 RPMREPO=osg
 USER=${USER:-$(id -un)}
 
@@ -115,6 +113,7 @@ for TYPES in NEW IGTFNEW; do
             for x; do touch -hr "$(readlink "$x")" "$x"; done' - {} +
     )
     mv tarball-tmp/etc/grid-security/certificates .
+    IGTF_VER=$(awk '$1 == "version" {print $3; exit}' certificates/*.info)
     OSG_VER=$(awk '/OSGversion/ {print $3}' certificates/INDEX.txt)
     TARBALL=osg-certificates-${OSG_VER}.tar.gz
 
@@ -131,6 +130,8 @@ for TYPES in NEW IGTFNEW; do
     # again, care is taken here to make a tarball with a reproducible checksum
     tar c certificates/* --{owner,group}=root | gzip -n > "$TARBALL"
 
+    tarball_sha256sum=$(sha256sum < "$TARBALL" | awk '{print $1}')
+
     ## Save the tarball
     CADIR="${TMPROOT}/cadist/${VERSION_CA}${SUFFIX}"
     CATARBALL="${CADIR}/$TARBALL"
@@ -143,39 +144,23 @@ for TYPES in NEW IGTFNEW; do
     rm -rf "$DOWNLOADDIR"
 
 
-    ## Download the "version" file from SVN - this has a name like
+    ## Generate the "version" file (aka manifest) - this has a name like
     ## ca-certs-version-1.59NEW and is a txt file with the checksum of the
     ## tarball in it. Then rename it to add the "-new" or "-igtf-new"
     ## suffix.
-    VERSIONFILE_URL=${CADISTREPO}/${CADISTREPORELEASETYPE}/ca-certs-version-${VERSION_CA}${SUFFIX}
     VERSIONFILE=${TMPROOT}/cadist/ca-certs-version${FILEEXT}
-    if ! svn export -q --force "$VERSIONFILE_URL" "$VERSIONFILE"; then
-        message "$VERSIONFILE: unable to download"
-        message "Upstream URL: $VERSIONFILE_URL"
-        exit 1
-    fi
+    REPO_CADIST=http://repo.opensciencegrid.org/pacman/cadist
+    TARBALL_URL=$REPO_CADIST/${VERSION_CA}${SUFFIX}/$TARBALL
 
-    ## Check the checksums
-    if fgrep -q tarball_sha256sum "$VERSIONFILE"; then
-        expected_sum=$(
-            perl -lne '/^\s*tarball_sha256sum\s*=\s*(\w+)/ and print "$1"' \
-                "$VERSIONFILE")
-        actual_sum=$(sha256sum "$CATARBALL" | awk '{print $1}')
-    elif fgrep -q tarball_md5sum "$VERSIONFILE"; then
-        expected_sum=$(
-            perl -lne '/^\s*tarball_md5sum\s*=\s*(\w+)/ and print "$1"' \
-                "$VERSIONFILE")
-        actual_sum=$(md5sum "$CATARBALL" | awk '{print $1}')
-    else
-        message "$CATARBALL: checksum not found in version file $VERSIONFILE"
-        exit 1
-    fi
-    if [[ $expected_sum != $actual_sum ]]; then
-        message "$CATARBALL: checksum mismatch"
-        message "Expected: $expected_sum"
-        message "Actual:   $actual_sum"
-        exit 1
-    fi
+    # generate manifest
+    timestamp=$(date -u +"%Y%m%dT%H%M%S")
+    { echo "dataversion=1             # The version of data in this file"
+      echo "timestamp=$timestamp # Time of creation of this file"
+      echo "certsversion=$OSG_VER  # Version of the certificates"
+      echo "versiondesc=$OSG_VER (includes IGTF $IGTF_VER pre-release CAs)"
+      echo "tarball=$TARBALL_URL"
+      echo "tarball_sha256sum=$tarball_sha256sum"
+    } > "$VERSIONFILE"
 
 
     EXTRACT_FILES="certificates/CHANGES certificates/INDEX.html certificates/INDEX.txt"
