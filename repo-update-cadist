@@ -8,8 +8,6 @@ trap 'rm -rf "$TMPROOT"' EXIT
 GOC=/usr/local
 INSTALLBASE=${GOC}/repo
 CAINSTALL=${INSTALLBASE}/cadist
-CADISTREPO="https://vdt.cs.wisc.edu/svn/certs/trunk/cadist"
-CADISTREPORELEASETYPE="release"
 RPMREPO=osg
 USER=${USER:-$(id -un)}
 
@@ -63,8 +61,8 @@ message () {
 which yumdownloader &> /dev/null  ||  { message "yumdownloader not found. Install the yum-utils package."; exit 1; }
 
 # Clear caches so we download the latest version
-yum --disablerepo=\* --enablerepo="$RPMREPO-source" clean all 1>&2
-yum --disablerepo=\* --enablerepo="$RPMREPO-source" clean expire-cache 1>&2
+yum --disablerepo=\* --enablerepo="$RPMREPO" clean all 1>&2
+yum --disablerepo=\* --enablerepo="$RPMREPO" clean expire-cache 1>&2
 
 for TYPES in NEW IGTFNEW; do
     SUFFIX=$TYPES
@@ -93,28 +91,46 @@ for TYPES in NEW IGTFNEW; do
     mkdir -p "$DOWNLOADDIR"
     pushd "$DOWNLOADDIR" >/dev/null
     # yumdownloader prints errors to stdout and is quiet when everything is ok
-    yumdownloader --disablerepo=\* --enablerepo="$RPMREPO-source" --source "$RPM" 1>&2
-    RPMFILE=$(/bin/ls *.src.rpm)
+    yumdownloader --disablerepo=\* --enablerepo="$RPMREPO" "$RPM" 1>&2
+    RPMFILE=(*.noarch.rpm)
     if [[ ! -f $RPMFILE ]]; then
         message "$RPM: unable to download from repos"
         exit 1
     fi
-    rpm2cpio "$RPMFILE" | cpio --quiet -id '*.tar.gz'
-    TARBALL=$(/bin/ls *.tar.gz)
-    if [[ ! -f $TARBALL ]]; then
-        message "$RPMFILE: couldn't extract tarball"
+
+    # create tarball from rpm such that the checksum is reproducible
+
+    mkdir tarball-tmp
+    rpm2cpio "$RPMFILE" | (
+        cd tarball-tmp
+        cpio --quiet -idm
+    )
+    # cpio -m does not set symlink timestamps, so set them to match targets
+    # this way, the tarball checksum is reproducible
+    (
+        cd tarball-tmp/etc/grid-security/certificates
+        find -type l -exec bash -c '
+            for x; do touch -hr "$(readlink "$x")" "$x"; done' - {} +
+    )
+    mv tarball-tmp/etc/grid-security/certificates .
+    IGTF_VER=$(awk '$1 == "version" {print $3; exit}' certificates/*.info)
+    OSG_VER=$(awk '/OSGversion/ {print $3}' certificates/INDEX.txt)
+    TARBALL=osg-certificates-${OSG_VER}.tar.gz
+
+    # TARBALL should be like "osg-certificates-1.59NEW.tar.gz"
+    if [[ ! $OSG_VER =~ ^([[:digit:]]+\.[[:digit:]]+)${SUFFIX}$ ]]; then
+        message "Bad OSGversion: '$OSG_VER'"
+        message "Extracted from INDEX.txt in $RPMFILE"
         exit 1
     fi
 
-    # Only by parsing the tarball name can we find out the version of the CA certs
-    # TARBALL should be like "osg-certificates-1.59NEW.tar.gz"
-    if [[ ! $TARBALL =~ ^osg-certificates-([[:digit:]]+\.[[:digit:]]+)${SUFFIX}\.tar\.gz$ ]]; then
-        message "$TARBALL: bad tarball name"
-        message "Extracted from $RPMFILE"
-        exit 1
-    fi
     VERSION_CA=${BASH_REMATCH[1]}
     # VERSION_CA should be like "1.59"
+
+    # again, care is taken here to make a tarball with a reproducible checksum
+    tar c certificates/* --{owner,group}=root | gzip -n > "$TARBALL"
+
+    tarball_sha256sum=$(sha256sum < "$TARBALL" | awk '{print $1}')
 
     ## Save the tarball
     CADIR="${TMPROOT}/cadist/${VERSION_CA}${SUFFIX}"
@@ -128,39 +144,23 @@ for TYPES in NEW IGTFNEW; do
     rm -rf "$DOWNLOADDIR"
 
 
-    ## Download the "version" file from SVN - this has a name like
+    ## Generate the "version" file (aka manifest) - this has a name like
     ## ca-certs-version-1.59NEW and is a txt file with the checksum of the
     ## tarball in it. Then rename it to add the "-new" or "-igtf-new"
     ## suffix.
-    VERSIONFILE_URL=${CADISTREPO}/${CADISTREPORELEASETYPE}/ca-certs-version-${VERSION_CA}${SUFFIX}
     VERSIONFILE=${TMPROOT}/cadist/ca-certs-version${FILEEXT}
-    if ! svn export -q --force "$VERSIONFILE_URL" "$VERSIONFILE"; then
-        message "$VERSIONFILE: unable to download"
-        message "Upstream URL: $VERSIONFILE_URL"
-        exit 1
-    fi
+    REPO_CADIST=http://repo.opensciencegrid.org/cadist
+    TARBALL_URL=$REPO_CADIST/${VERSION_CA}${SUFFIX}/$TARBALL
 
-    ## Check the checksums
-    if fgrep -q tarball_sha256sum "$VERSIONFILE"; then
-        expected_sum=$(
-            perl -lne '/^\s*tarball_sha256sum\s*=\s*(\w+)/ and print "$1"' \
-                "$VERSIONFILE")
-        actual_sum=$(sha256sum "$CATARBALL" | awk '{print $1}')
-    elif fgrep -q tarball_md5sum "$VERSIONFILE"; then
-        expected_sum=$(
-            perl -lne '/^\s*tarball_md5sum\s*=\s*(\w+)/ and print "$1"' \
-                "$VERSIONFILE")
-        actual_sum=$(md5sum "$CATARBALL" | awk '{print $1}')
-    else
-        message "$CATARBALL: checksum not found in version file $VERSIONFILE"
-        exit 1
-    fi
-    if [[ $expected_sum != $actual_sum ]]; then
-        message "$CATARBALL: checksum mismatch"
-        message "Expected: $expected_sum"
-        message "Actual:   $actual_sum"
-        exit 1
-    fi
+    # generate manifest
+    timestamp=$(date -u +"%Y%m%dT%H%M%S")
+    { echo "dataversion=1             # The version of data in this file"
+      echo "timestamp=$timestamp # Time of creation of this file"
+      echo "certsversion=$OSG_VER  # Version of the certificates"
+      echo "versiondesc=$OSG_VER (includes IGTF $IGTF_VER pre-release CAs)"
+      echo "tarball=$TARBALL_URL"
+      echo "tarball_sha256sum=$tarball_sha256sum"
+    } > "$VERSIONFILE"
 
 
     EXTRACT_FILES="certificates/CHANGES certificates/INDEX.html certificates/INDEX.txt"
