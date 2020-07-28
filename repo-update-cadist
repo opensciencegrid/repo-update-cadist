@@ -217,9 +217,6 @@ for TYPES in NEW IGTFNEW; do
     fi
 done
 
-# temporary fix for broken links in INDEX.html (SOFTWARE-4091)
-# (needs to be fixed in mk-index.pl in the osg-certificates package)
-
 IGTFNEW_BUNDLE=${VER_IGTFNEW}/osg-certificates-${VER_IGTFNEW}.tar.gz
 NEW_BUNDLE=${VER_NEW}/osg-certificates-${VER_NEW}.tar.gz
 
@@ -227,7 +224,6 @@ sed -i -e "/Latest IGTF CA bundle/s|href='[^']*'|href='$IGTFNEW_BUNDLE'|" \
        -e "/Latest OSG CA bundle/s|href='[^']*'|href='$NEW_BUNDLE'|"      \
     ${TMPROOT}/cadist/${VER_IGTFNEW}/INDEX.html                           \
     ${TMPROOT}/cadist/${VER_NEW}/INDEX.html
-
 
 chmod -R ug+rwX "${TMPROOT}/cadist/"
 chmod -R o+rX "${TMPROOT}/cadist/"
