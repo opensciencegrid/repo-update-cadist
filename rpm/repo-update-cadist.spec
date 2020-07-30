@@ -1,6 +1,6 @@
 Name:      repo-update-cadist
 Summary:   repo-update-cadist
-Version:   1.1.1
+Version:   1.1.2
 Release:   1%{?dist}
 License:   Apache 2.0
 Group:     Grid
@@ -40,6 +40,9 @@ install -pm 644 %{name}.cron  $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
 %endif
 
 %changelog
+* Thu Jul 30 2020 Carl Edquist <edquist@cs.wisc.edu> - 1.1.2-1
+- Stop fixing broken CA bundle tarball links in INDEX.html (SOFTWARE-3874)
+
 * Thu May 07 2020 Carl Edquist <edquist@cs.wisc.edu> - 1.1.1-1
 - Fix broken CA bundle tarball links in INDEX.html files (SOFTWARE-4091)
 
