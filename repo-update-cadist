@@ -216,6 +216,11 @@ for TYPES in NEW IGTFNEW; do
     fi
 done
 
+# fix path to OSG tarball in IGTF INDEX.html (SOFTWARE-4394)
+latest_osg_line=$(grep "Latest OSG CA bundle" ${TMPROOT}/cadist/index-new.html)
+igtf_html_path=$(readlink -f ${TMPROOT}/cadist/index-igtf-new.html)
+sed -i "/Latest OSG CA bundle/s|.*|$latest_osg_line|" "$igtf_html_path"
+
 chmod -R ug+rwX "${TMPROOT}/cadist/"
 chmod -R o+rX "${TMPROOT}/cadist/"
 chown root:root "${TMPROOT}/cadist/"
